@@ -176,7 +176,7 @@ OPENAI_BASE_URL=http://127.0.0.1:8000/v1  # 或其他兼容端点
 
 # 服务器配置
 HOST=0.0.0.0
-PORT=8001  # 后端端口（避免与 vLLM 的 8000 冲突）
+PORT=8001
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
@@ -243,22 +243,6 @@ GET  /health                    # 健康检查
 POST /v1/chat                   # 非流式聊天
 POST /v1/chat/stream            # 流式聊天 (SSE)
 GET  /v1/models                 # 列出可用模型
-```
-
-### 示例 API 调用
-
-```bash
-# 流式请求
-curl -N -X POST http://localhost:8001/v1/chat/stream \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "qwen3-30b-thinking",
-    "messages": [
-      {"role": "user", "content": "9.8和9.11哪个大？"}
-    ],
-    "temperature": 0.6,
-    "stream": true
-  }'
 ```
 
 ## 🛠️ 技术栈
