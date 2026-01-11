@@ -11,7 +11,6 @@ export interface ChatCompletionRequest {
   temperature?: number;
   top_p?: number;
   max_tokens?: number;
-  system?: string;
   seed?: number;
   stream?: boolean;
 }
@@ -34,16 +33,25 @@ export class ChatAPI {
   ): AsyncGenerator<ChatStreamEvent, void, unknown> {
     this.abortController = new AbortController();
 
+    // 构建messages数组，如果有system提示词，添加到开头
+    const apiMessages = [];
+    if (settings.system) {
+      apiMessages.push({
+        role: 'system',
+        content: settings.system,
+      });
+    }
+    apiMessages.push(...messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    })));
+
     const requestBody: any = {
       model: settings.model,
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
+      messages: apiMessages,
       temperature: settings.temperature,
       top_p: settings.top_p,
       max_tokens: settings.max_tokens,
-      system: settings.system,
       stream: true,
     };
 
@@ -200,16 +208,25 @@ export class ChatAPI {
     messages: Message[],
     settings: ModelSettings
   ): Promise<string> {
+    // 构建messages数组，如果有system提示词，添加到开头
+    const apiMessages = [];
+    if (settings.system) {
+      apiMessages.push({
+        role: 'system',
+        content: settings.system,
+      });
+    }
+    apiMessages.push(...messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    })));
+
     const requestBody: ChatCompletionRequest = {
       model: settings.model,
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
+      messages: apiMessages,
       temperature: settings.temperature,
       top_p: settings.top_p,
       max_tokens: settings.max_tokens,
-      system: settings.system,
       stream: false,
     };
 
