@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Upload, Moon, Sun, Database, Plus, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import type { ModelSettings, UIPreferences, Model, ExtraParam, ExtraParamType } from '@/types';
+import type { ModelSettings, UIPreferences, Model, ExtraParamType } from '@/types';
 import { chatAPI } from '@/services/api';
 import { useChatStore } from '@/store';
 
@@ -68,10 +68,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           }
         });
         setModels(allModels);
+
+        // 如果当前没有选中模型，但有可用模型，自动选择第一个
+        if (!settings.model && allModels.length > 0) {
+          onUpdateSettings({ model: allModels[0].id });
+        }
       } catch (error) {
         // 如果 API 失败，只使用来源模型
         console.warn('Failed to load models from API, using source models only:', error);
         setModels(sourceModels);
+
+        // 如果当前没有选中模型，但有可用模型，自动选择第一个
+        if (!settings.model && sourceModels.length > 0) {
+          onUpdateSettings({ model: sourceModels[0].id });
+        }
       }
     } catch (error) {
       console.error('Failed to load models:', error);

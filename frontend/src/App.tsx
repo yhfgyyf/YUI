@@ -7,6 +7,7 @@ import { ModelSourcesPanel } from './components/ModelSourcesPanel';
 import { useChatStore } from './store';
 import { chatAPI } from './services/api';
 import { downloadJSON, readJSONFile } from './utils/storage';
+import { migrateFromLocalStorage } from './services/dbApi';
 
 function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -19,13 +20,18 @@ function App() {
     globalSettings,
     uiPreferences,
     isGenerating,
+    isLoading,
     modelSources,
+    folders,
+    loadFromDatabase,
     createConversation,
     deleteConversation,
     renameConversation,
     selectConversation,
     pinConversation,
     archiveConversation,
+    copyConversation,
+    moveConversationToFolder,
     addMessage,
     updateMessage,
     deleteMessage,
@@ -33,24 +39,111 @@ function App() {
     updateGlobalSettings,
     updateUIPreferences,
     setIsGenerating,
+    addModelSource,
+    updateModelSource,
     exportConversation,
     exportAllConversations,
     importConversations,
     getCurrentConversation,
     getEffectiveSettings,
+    createFolder,
+    deleteFolder,
+    updateFolder,
   } = useChatStore();
+
+  // Initialize database and migrate from localStorage on first load
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Try to migrate from localStorage first
+        await migrateFromLocalStorage();
+
+        // Load data from database
+        await loadFromDatabase();
+
+        // After loading from database, check if we need to initialize defaults
+        const state = useChatStore.getState();
+
+        // Initialize default model source ONLY if database has no model sources
+        if (state.modelSources.length === 0) {
+          await initializeDefaultSource();
+        }
+
+        // Create initial conversation ONLY if database has no conversations
+        if (state.conversations.length === 0) {
+          createConversation();
+        }
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+      }
+    };
+
+    const initializeDefaultSource = async () => {
+      try {
+        // Check if .env has default source configured
+        const apiBase = import.meta.env.DEV ? '/api' : '';
+        const response = await fetch(`${apiBase}/v1/default-source`);
+        if (!response.ok) {
+          console.log('No default source configured');
+          return;
+        }
+
+        const defaultSource = await response.json();
+        if (!defaultSource.configured) {
+          console.log('Default source not configured in .env');
+          return;
+        }
+
+        console.log('Found default source configuration, detecting models...');
+
+        // Try to fetch models from the default source
+        try {
+          const modelsResponse = await fetch(`${apiBase}/v1/models`);
+          if (modelsResponse.ok) {
+            const modelsData = await modelsResponse.json();
+            if (modelsData.data && modelsData.data.length > 0) {
+              // Add the default source
+              const sourceId = addModelSource({
+                name: defaultSource.name,
+                baseUrl: defaultSource.baseUrl,
+                apiKey: defaultSource.apiKey,
+              });
+
+              // Update with detected models
+              const detectedModels = modelsData.data.map((model: any) => ({
+                id: model.id,
+                name: model.id,
+                type: 'llm' as const,
+                isReasoning: false,
+                available: true,
+              }));
+
+              updateModelSource(sourceId, { models: detectedModels });
+
+              // Auto-select first model
+              if (detectedModels.length > 0) {
+                updateGlobalSettings({ model: detectedModels[0].id });
+                console.log(`Auto-selected model: ${detectedModels[0].id}`);
+              }
+
+              console.log(`Added default source with ${detectedModels.length} models`);
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to fetch models from default source:', error);
+        }
+      } catch (error) {
+        console.warn('Failed to initialize default source:', error);
+      }
+    };
+
+    initializeApp();
+  }, []); // Run once on mount
 
   // Apply theme on mount and when it changes
   useEffect(() => {
     document.documentElement.classList.toggle('dark', uiPreferences.theme === 'dark');
   }, [uiPreferences.theme]);
-
-  // Create initial conversation if none exists
-  useEffect(() => {
-    if (conversations.length === 0) {
-      createConversation();
-    }
-  }, []);
 
   const handleSendMessage = async (content: string, skipAddingUserMessage = false) => {
     if (!currentConversationId) {
@@ -344,20 +437,49 @@ function App() {
     }
   };
 
+  const handleRenameFolder = (folderId: string, name: string) => {
+    updateFolder(folderId, { name });
+  };
+
+  const handlePinFolder = (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId);
+    if (folder) {
+      updateFolder(folderId, { isPinned: !folder.isPinned });
+    }
+  };
+
   const currentConversation = getCurrentConversation();
+
+  // Show loading screen while initializing
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading YUI ChatBox...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* Sidebar */}
       <Sidebar
         conversations={conversations}
+        folders={folders}
         currentConversationId={currentConversationId}
         onNewConversation={createConversation}
         onSelectConversation={selectConversation}
         onRenameConversation={renameConversation}
         onDeleteConversation={deleteConversation}
         onPinConversation={pinConversation}
-        onArchiveConversation={archiveConversation}
+        onCopyConversation={copyConversation}
+        onMoveConversation={moveConversationToFolder}
+        onCreateFolder={createFolder}
+        onDeleteFolder={deleteFolder}
+        onRenameFolder={handleRenameFolder}
+        onPinFolder={handlePinFolder}
       />
 
       {/* Main Content */}

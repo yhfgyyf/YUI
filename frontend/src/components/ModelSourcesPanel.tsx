@@ -38,7 +38,7 @@ export const ModelSourcesPanel: React.FC<ModelSourcesPanelProps> = ({
 
   const handleSaveNew = () => {
     if (!formData.name.trim() || !formData.baseUrl.trim()) {
-      alert('请填写项目名称和 Base URL');
+      alert('请填写模型提供商和 Base URL');
       return;
     }
 
@@ -63,7 +63,7 @@ export const ModelSourcesPanel: React.FC<ModelSourcesPanelProps> = ({
 
   const handleSaveEdit = () => {
     if (!editingId || !formData.name.trim() || !formData.baseUrl.trim()) {
-      alert('请填写项目名称和 Base URL');
+      alert('请填写模型提供商和 Base URL');
       return;
     }
 
@@ -178,7 +178,7 @@ export const ModelSourcesPanel: React.FC<ModelSourcesPanelProps> = ({
               <h3 className="text-lg font-semibold mb-4">新建模型来源</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-base font-medium mb-2">项目名称</label>
+                  <label className="block text-base font-medium mb-2">模型提供商</label>
                   <input
                     type="text"
                     value={formData.name}
@@ -194,7 +194,7 @@ export const ModelSourcesPanel: React.FC<ModelSourcesPanelProps> = ({
                     value={formData.baseUrl}
                     onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
                     className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                    placeholder="http://127.0.0.1:8000"
+                    placeholder="http://127.0.0.1:8000/v1"
                   />
                 </div>
                 <div>
@@ -243,7 +243,7 @@ export const ModelSourcesPanel: React.FC<ModelSourcesPanelProps> = ({
                   <h3 className="text-lg font-semibold mb-4">编辑模型来源</h3>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-base font-medium mb-2">项目名称</label>
+                      <label className="block text-base font-medium mb-2">模型提供商</label>
                       <input
                         type="text"
                         value={formData.name}

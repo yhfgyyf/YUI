@@ -1,0 +1,43 @@
+# Include frontend source in sdist (source distribution)
+recursive-include frontend/src *
+recursive-include frontend/public *
+include frontend/package.json
+include frontend/package-lock.json
+include frontend/vite.config.ts
+include frontend/tsconfig.json
+include frontend/tsconfig.node.json
+include frontend/tailwind.config.js
+include frontend/postcss.config.js
+include frontend/.eslintrc.cjs
+include frontend/index.html
+
+# Include static files in wheel (built distribution)
+recursive-include yuichatbox/static *
+
+# Include documentation
+include README.md
+include LICENSE
+include QUICKSTART.md
+include ARCHITECTURE.md
+include PROJECT_OVERVIEW.md
+
+# Include backend .env.example
+include backend/.env.example
+
+# Exclude unnecessary files
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude *.so
+global-exclude .DS_Store
+global-exclude *.swp
+global-exclude *~
+
+# Exclude build artifacts
+prune frontend/node_modules
+prune frontend/dist
+prune backend/venv
+prune yuichatbox/__pycache__
+prune tests/__pycache__
+prune build
+prune dist
+prune *.egg-info

@@ -221,7 +221,7 @@ curl http://localhost:8000/health
 # Streaming test
 curl -N -X POST http://localhost:8000/v1/chat/stream \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-3.5-turbo","messages":[{"role":"user","content":"Hello"}]}'
+  -d '{"model":"gpt-5.2","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
 ## 🔐 Security Features

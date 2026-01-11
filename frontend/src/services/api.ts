@@ -1,7 +1,9 @@
 // API Service for ChatBox
-import type { Message, ModelSettings, ChatStreamEvent, Model, ModelSource } from '@/types';
+import type { Message, ModelSettings, ChatStreamEvent, Model } from '@/types';
 
-const API_BASE_URL = '/api';
+// In development (Vite dev server), use '/api' which gets proxied to backend
+// In production (built and served by FastAPI), use '' for same-origin requests
+const API_BASE_URL = import.meta.env.DEV ? '/api' : '';
 
 export interface ChatCompletionRequest {
   model: string;
@@ -244,9 +246,8 @@ export class ChatAPI {
       console.error('Failed to fetch models:', error);
       // Return default models on error
       return [
-        { id: 'gpt-4-turbo-preview', object: 'model' },
-        { id: 'gpt-4', object: 'model' },
-        { id: 'gpt-3.5-turbo', object: 'model' },
+        { id: 'gpt-5.2-pro', object: 'model' },
+        { id: 'gpt-5.2', object: 'model' },
       ];
     }
   }

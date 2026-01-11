@@ -34,7 +34,7 @@ class Message(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    model: str = "gpt-3.5-turbo"
+    model: str = "gpt-5.2"
     messages: List[Message]
     temperature: Optional[float] = Field(default=0.7, ge=0, le=2)
     top_p: Optional[float] = Field(default=1.0, ge=0, le=1)
@@ -240,9 +240,8 @@ async def list_models():
             # Return default models if API call fails
             return {
                 "data": [
-                    {"id": "gpt-4-turbo-preview", "object": "model"},
-                    {"id": "gpt-4", "object": "model"},
-                    {"id": "gpt-3.5-turbo", "object": "model"},
+                    {"id": "gpt-5.2-pro", "object": "model"},
+                    {"id": "gpt-5.2", "object": "model"},
                 ]
             }
 
@@ -252,9 +251,8 @@ async def list_models():
         # Return default models on error
         return {
             "data": [
-                {"id": "gpt-4-turbo-preview", "object": "model"},
-                {"id": "gpt-4", "object": "model"},
-                {"id": "gpt-3.5-turbo", "object": "model"},
+                {"id": "gpt-5.2-pro", "object": "model"},
+                {"id": "gpt-5.2", "object": "model"},
             ]
         }
 

@@ -43,6 +43,16 @@ export interface ModelSettings {
   extraParams?: ExtraParam[]; // 额外参数列表
 }
 
+export interface Folder {
+  id: string;
+  name: string;
+  color?: string;
+  isPinned?: boolean;
+  createdAt: number;
+  updatedAt: number;
+  isExpanded?: boolean; // UI state, not persisted to database
+}
+
 export interface Conversation {
   id: string;
   title: string;
@@ -52,6 +62,7 @@ export interface Conversation {
   settings?: Partial<ModelSettings>;
   isPinned?: boolean;
   isArchived?: boolean;
+  folderId?: string; // Folder this conversation belongs to
 }
 
 export interface UIPreferences {
@@ -68,6 +79,7 @@ export interface AppState {
   uiPreferences: UIPreferences;
   isGenerating: boolean;
   modelSources: ModelSource[];
+  folders: Folder[]; // Conversation folders
 }
 
 export interface ChatStreamEvent {
@@ -89,7 +101,7 @@ export type ModelType = 'llm' | 'embedding' | 'reranker' | 'multimodal';
 
 export interface ModelSource {
   id: string;
-  name: string; // 项目名称
+  name: string; // 模型提供商
   baseUrl: string; // OPENAI_BASE_URL
   apiKey: string; // OPENAI_API_KEY
   models: DetectedModel[]; // 检测到的模型列表

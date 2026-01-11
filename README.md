@@ -54,19 +54,67 @@
 
 ## 🚀 快速开始
 
-### 环境要求
-- Node.js 18+ 和 npm
-- Python 3.11+
+### 方式一：pip 安装（推荐）
+
+这是最简单的安装方式。
+
+#### 环境要求
+- Python 3.8+
 - 一个 OpenAI 兼容的 API 端点（OpenAI、DeepSeek、vLLM、SGLang 等）
 
-### 1. 克隆项目
+#### 安装步骤
 
 ```bash
+# 从源码安装（需要 Node.js 进行前端构建）
 git clone https://github.com/yourusername/YUI.git
 cd YUI
+pip install .
+
+# 或者使用可编辑安装（开发模式）
+pip install -e .
 ```
 
-### 2. 后端设置
+#### 配置和启动
+
+```bash
+# 初始化配置文件
+python -m yuichatbox init-config
+
+# 编辑 .env 文件，配置 API 密钥和端点
+nano .env
+
+# 启动服务（生产模式）
+python -m yuichatbox serve
+```
+
+访问 `http://localhost:8001` 即可使用！
+
+#### 开发模式
+
+如果你是开发者，想要修改代码并实时看到效果：
+
+```bash
+# 启动开发模式（前后端热更新）
+python -m yuichatbox serve --dev
+```
+
+开发模式下：
+- 前端运行在 `http://localhost:5173`（自动打开浏览器访问这个地址）
+- 后端运行在 `http://localhost:8001`
+- 修改代码后会自动重新加载
+
+---
+
+### 方式二：传统方式（手动启动前后端）
+
+如果你希望分别管理前后端，可以使用传统方式。
+
+#### 环境要求
+- Node.js 18+ 和 npm
+- Python 3.8+
+- 一个 OpenAI 兼容的 API 端点
+
+#### 后端设置
 
 ```bash
 cd backend
@@ -86,9 +134,7 @@ cp .env.example .env
 python main.py
 ```
 
-后端服务运行在 `http://localhost:8001`
-
-### 3. 前端设置
+#### 前端设置
 
 ```bash
 cd frontend
@@ -108,7 +154,7 @@ npm run dev
 2. 点击右上角 **设置** 图标
 3. 点击 **模型来源配置**
 4. 添加你的模型源：
-   - **项目名称**：自定义名称（如 "本地 vLLM"）
+   - **模型提供商**：自定义名称（如 "本地 vLLM"）
    - **Base URL**：`http://127.0.0.1:8000/v1`
    - **API Key**：你的 API 密钥
 5. 点击 **检测** 按钮，自动发现可用模型
@@ -180,26 +226,6 @@ PORT=8001
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
-### 使用 vLLM（本地推理）
-
-```bash
-# 启动 vLLM 服务器
-python -m vllm.entrypoints.openai.api_server \
-  --model Qwen/Qwen2.5-7B-Instruct \
-  --port 8000
-
-# 在前端配置模型源
-# Base URL: http://127.0.0.1:8000/v1
-# API Key: dummy
-```
-
-### 使用 DeepSeek API
-
-```bash
-# 在前端配置模型源
-# Base URL: https://api.deepseek.com
-# API Key: 你的 DeepSeek API Key
-```
 
 ## 📁 项目结构
 

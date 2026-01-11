@@ -1,60 +1,67 @@
 import React, { useState } from 'react';
-import {
-  MessageSquare,
-  Plus,
-  Search,
-  Pin,
-  Archive,
-  Trash2,
-  Edit2,
-  Check,
-  X,
-} from 'lucide-react';
-import { clsx } from 'clsx';
-import type { Conversation } from '@/types';
-import { formatTimestamp, truncateText } from '@/utils/format';
+import { Plus, Search, Copy, Folder as FolderIcon, Trash2, Edit2, FolderPlus } from 'lucide-react';
+import type { Conversation, Folder } from '@/types';
+import { FolderTree } from './FolderTree';
+import { ContextMenu, ContextMenuItem } from './ContextMenu';
 
 interface SidebarProps {
   conversations: Conversation[];
+  folders: Folder[];
   currentConversationId: string | null;
   onNewConversation: () => void;
   onSelectConversation: (id: string) => void;
   onRenameConversation: (id: string, title: string) => void;
   onDeleteConversation: (id: string) => void;
   onPinConversation: (id: string) => void;
-  onArchiveConversation: (id: string) => void;
+  onCopyConversation: (id: string) => void;
+  onMoveConversation: (conversationId: string, folderId: string) => void;
+  onCreateFolder: (name: string, color?: string) => void;
+  onDeleteFolder: (folderId: string) => void;
+  onRenameFolder: (folderId: string, name: string) => void;
+  onPinFolder: (folderId: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   conversations,
+  folders,
   currentConversationId,
   onNewConversation,
   onSelectConversation,
   onRenameConversation,
   onDeleteConversation,
   onPinConversation,
-  onArchiveConversation,
+  onCopyConversation,
+  onMoveConversation,
+  onCreateFolder,
+  onDeleteFolder,
+  onRenameFolder,
+  onPinFolder,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    conversationId: string;
+  } | null>(null);
+  const [folderSelectDialog, setFolderSelectDialog] = useState<{
+    conversationId: string;
+    folders: Folder[];
+  } | null>(null);
 
-  const startEditing = (conversation: Conversation) => {
-    setEditingId(conversation.id);
-    setEditingTitle(conversation.title);
+  const handleContextMenu = (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      conversationId,
+    });
   };
 
-  const saveEditing = () => {
-    if (editingId && editingTitle.trim()) {
-      onRenameConversation(editingId, editingTitle.trim());
+  const handleCreateFolder = () => {
+    const name = prompt('输入文件夹名称:');
+    if (name && name.trim()) {
+      onCreateFolder(name.trim());
     }
-    setEditingId(null);
-    setEditingTitle('');
-  };
-
-  const cancelEditing = () => {
-    setEditingId(null);
-    setEditingTitle('');
   };
 
   const filteredConversations = conversations.filter((conv) => {
@@ -62,18 +69,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!searchQuery) return true;
     return (
       conv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conv.messages.some((m) =>
+      (conv.messages || []).some((m) =>
         m.content.toLowerCase().includes(searchQuery.toLowerCase())
       )
     );
   });
 
-  // Sort: pinned first, then by updatedAt
-  const sortedConversations = [...filteredConversations].sort((a, b) => {
-    if (a.isPinned && !b.isPinned) return -1;
-    if (!a.isPinned && b.isPinned) return 1;
-    return b.updatedAt - a.updatedAt;
-  });
+  const contextMenuItems: ContextMenuItem[] = contextMenu
+    ? [
+      {
+        icon: <Copy className="w-4 h-4" />,
+        label: '复制对话',
+        onClick: () => {
+          onCopyConversation(contextMenu.conversationId);
+        },
+      },
+      {
+        icon: <FolderIcon className="w-4 h-4" />,
+        label: '移动到...',
+        onClick: () => {
+          const availableFolders = folders.filter(
+            (f) => f.id !== conversations.find((c) => c.id === contextMenu.conversationId)?.folderId
+          );
+
+          if (availableFolders.length === 0) {
+            alert('没有其他文件夹可移动');
+            setContextMenu(null);
+            return;
+          }
+
+          setFolderSelectDialog({
+            conversationId: contextMenu.conversationId,
+            folders: availableFolders,
+          });
+          setContextMenu(null);
+        },
+      },
+      {
+        icon: <Edit2 className="w-4 h-4" />,
+        label: '重命名',
+        onClick: () => {
+          // 关闭菜单，触发内联编辑
+          const conversationId = contextMenu.conversationId;
+          setContextMenu(null);
+
+          // 触发对话项的内联编辑
+          // 通过点击编辑按钮来触发（因为已有内联编辑逻辑）
+          setTimeout(() => {
+            const convElement = document.querySelector(`[data-conversation-id="${conversationId}"]`);
+            const editButton = convElement?.querySelector('[title="重命名"]') as HTMLButtonElement;
+            if (editButton) {
+              editButton.click();
+            }
+          }, 50);
+        },
+      },
+      {
+        icon: <Trash2 className="w-4 h-4" />,
+        label: '删除',
+        onClick: () => {
+          onDeleteConversation(contextMenu.conversationId);
+        },
+        danger: true,
+      },
+    ]
+    : [];
 
   return (
     <div className="w-72 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
@@ -102,123 +162,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Conversation List - Scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {sortedConversations.length === 0 ? (
+      {/* New Folder Button */}
+      <div className="flex-shrink-0 px-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={handleCreateFolder}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors text-sm font-medium"
+        >
+          <FolderPlus className="w-4 h-4" />
+          <span>新建文件夹</span>
+        </button>
+      </div>
+
+      {/* Folder Tree - Scrollable */}
+      <div className="flex-1 overflow-y-auto min-h-0 p-2">
+        {filteredConversations.length === 0 ? (
           <div className="p-4 text-center text-gray-500 text-base">
             {searchQuery ? '未找到对话' : '暂无对话'}
           </div>
         ) : (
-          <div className="p-2">
-            {sortedConversations.map((conversation) => (
-              <div
-                key={conversation.id}
-                className={clsx(
-                  'group relative p-3 rounded-lg cursor-pointer mb-1 transition-colors',
-                  conversation.id === currentConversationId
-                    ? 'bg-blue-100 dark:bg-blue-900/30'
-                    : 'hover:bg-gray-200 dark:hover:bg-gray-800'
-                )}
-                onClick={() => onSelectConversation(conversation.id)}
-              >
-                {editingId === conversation.id ? (
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="text"
-                      value={editingTitle}
-                      onChange={(e) => setEditingTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveEditing();
-                        if (e.key === 'Escape') cancelEditing();
-                      }}
-                      className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
-                      autoFocus
-                    />
-                    <button
-                      onClick={saveEditing}
-                      className="p-1 hover:bg-green-100 dark:hover:bg-green-900/30 rounded"
-                    >
-                      <Check className="w-4 h-4 text-green-600" />
-                    </button>
-                    <button
-                      onClick={cancelEditing}
-                      className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
-                    >
-                      <X className="w-4 h-4 text-red-600" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-start gap-2">
-                      <MessageSquare className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-base truncate">
-                            {conversation.title}
-                          </h3>
-                          {conversation.isPinned && (
-                            <Pin className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500 truncate">
-                          {conversation.messages[conversation.messages.length - 1]
-                            ? truncateText(
-                                conversation.messages[conversation.messages.length - 1].content,
-                                50
-                              )
-                            : '暂无消息'}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {formatTimestamp(conversation.updatedAt)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPinConversation(conversation.id);
-                        }}
-                        className={clsx(
-                          'p-1 rounded hover:bg-gray-300 dark:hover:bg-gray-700',
-                          conversation.isPinned && 'text-blue-500'
-                        )}
-                        title={conversation.isPinned ? '取消置顶' : '置顶'}
-                      >
-                        <Pin className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditing(conversation);
-                        }}
-                        className="p-1 rounded hover:bg-gray-300 dark:hover:bg-gray-700"
-                        title="重命名"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm('确定要删除这个对话吗？')) {
-                            onDeleteConversation(conversation.id);
-                          }
-                        }}
-                        className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600"
-                        title="删除"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
+          <FolderTree
+            folders={folders}
+            conversations={filteredConversations}
+            currentConversationId={currentConversationId}
+            onSelectConversation={onSelectConversation}
+            onRenameConversation={onRenameConversation}
+            onDeleteConversation={onDeleteConversation}
+            onPinConversation={onPinConversation}
+            onMoveConversation={onMoveConversation}
+            onContextMenu={handleContextMenu}
+            onDeleteFolder={onDeleteFolder}
+            onRenameFolder={onRenameFolder}
+            onPinFolder={onPinFolder}
+          />
         )}
       </div>
+
+      {/* Folder Selection Dialog */}
+      {folderSelectDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setFolderSelectDialog(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">选择目标文件夹</h3>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {folderSelectDialog.folders.map((folder) => (
+                <button
+                  key={folder.id}
+                  onClick={() => {
+                    onMoveConversation(folderSelectDialog.conversationId, folder.id);
+                    setFolderSelectDialog(null);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors text-left"
+                >
+                  <FolderIcon className="w-5 h-5" style={{ color: folder.color || '#6B7280' }} />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{folder.name}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setFolderSelectDialog(null)}
+              className="mt-4 w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded-lg transition-colors text-sm font-medium"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 };

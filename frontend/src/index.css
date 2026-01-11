@@ -4,7 +4,7 @@
 
 :root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-               'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   line-height: 1.6;
   font-weight: 400;
   font-size: 16px;
@@ -87,6 +87,8 @@ body {
 
 .prose code {
   background-color: #f3f4f6;
+  color: #1f2937;
+  /* 深灰色文字 - 浅色模式 */
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
   font-size: 0.9em;
@@ -94,11 +96,20 @@ body {
 
 .dark .prose code {
   background-color: #374151;
+  color: #f3f4f6;
+  /* 浅灰色文字 - 深色模式 */
 }
 
 .prose pre code {
   background-color: transparent;
   padding: 0;
+  color: #e5e7eb;
+  /* 浅色文字 - pre 有深色背景 */
+}
+
+.dark .prose pre code {
+  color: #e5e7eb;
+  /* 深色模式下也是浅色文字 */
 }
 
 .prose a {
@@ -110,13 +121,19 @@ body {
   color: #2563eb;
 }
 
-.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
   font-weight: 600;
   margin-top: 1.5em;
   margin-bottom: 0.75em;
 }
 
-.prose ul, .prose ol {
+.prose ul,
+.prose ol {
   padding-left: 1.5em;
   margin-top: 0.75em;
   margin-bottom: 0.75em;
@@ -129,9 +146,12 @@ body {
 
 /* Loading animation */
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }

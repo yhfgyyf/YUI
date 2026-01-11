@@ -23,6 +23,8 @@ ENV/
 dist/
 build/
 *.egg-info/
+yuichatbox/static/
+yui-chatbox-offline-*/
 
 # IDE
 .vscode/
