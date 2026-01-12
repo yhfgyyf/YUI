@@ -469,6 +469,8 @@ function App() {
         conversations={conversations}
         folders={folders}
         currentConversationId={currentConversationId}
+        collapsed={uiPreferences.sidebarCollapsed}
+        onToggleCollapsed={() => updateUIPreferences({ sidebarCollapsed: !uiPreferences.sidebarCollapsed })}
         onNewConversation={createConversation}
         onSelectConversation={selectConversation}
         onRenameConversation={renameConversation}
@@ -484,18 +486,6 @@ function App() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Top Bar */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">ChatBox</h1>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title="设置"
-          >
-            <SettingsIcon className="w-6 h-6" />
-          </button>
-        </div>
-
         {/* Chat Panel */}
         <ChatPanel
           conversation={currentConversation}
@@ -510,6 +500,7 @@ function App() {
             }
           }}
           onExportConversation={handleExportConversation}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
       </div>
 

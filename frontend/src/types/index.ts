@@ -70,6 +70,7 @@ export interface UIPreferences {
   fontSize: 'small' | 'medium' | 'large';
   messageDensity: 'compact' | 'comfortable' | 'spacious';
   sidebarWidth: number;
+  sidebarCollapsed?: boolean;  // 侧边栏是否收起
 }
 
 export interface AppState {

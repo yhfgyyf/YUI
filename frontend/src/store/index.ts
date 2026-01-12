@@ -16,6 +16,7 @@ const DEFAULT_UI_PREFERENCES: UIPreferences = {
   fontSize: 'medium',
   messageDensity: 'comfortable',
   sidebarWidth: 280,
+  sidebarCollapsed: false,
 };
 
 interface ChatStore extends AppState {
@@ -268,19 +269,23 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
       createdAt: Date.now(),
     };
 
+    // Get the old title before updating
+    const oldConv = get().conversations.find(c => c.id === conversationId);
+    const oldTitle = oldConv?.title;
+
     set((state) => ({
       conversations: state.conversations.map((c) =>
         c.id === conversationId
           ? {
-              ...c,
-              messages: [...(c.messages || []), newMessage],
-              updatedAt: Date.now(),
-              // Auto-generate title from first user message
-              title:
-                (c.messages?.length || 0) === 0 && message.role === 'user'
-                  ? message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
-                  : c.title,
-            }
+            ...c,
+            messages: [...(c.messages || []), newMessage],
+            updatedAt: Date.now(),
+            // Auto-generate title from first user message
+            title:
+              (c.messages?.length || 0) === 0 && message.role === 'user'
+                ? message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
+                : c.title,
+          }
           : c
       ),
     }));
@@ -289,10 +294,10 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     dbApi.addMessage(conversationId, newMessage).catch(console.error);
 
     // Update conversation title if changed
-    const conv = get().conversations.find(c => c.id === conversationId);
-    if (conv && conv.title !== get().conversations.find(c => c.id === conversationId)?.title) {
+    const newConv = get().conversations.find(c => c.id === conversationId);
+    if (newConv && newConv.title !== oldTitle) {
       dbApi.updateConversation(conversationId, {
-        title: conv.title,
+        title: newConv.title,
         updatedAt: Date.now()
       }).catch(console.error);
     }
@@ -308,12 +313,12 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
       conversations: state.conversations.map((c) =>
         c.id === conversationId
           ? {
-              ...c,
-              messages: (c.messages || []).map((m) =>
-                m.id === messageId ? { ...m, ...messageUpdates } : m
-              ),
-              updatedAt: Date.now(),
-            }
+            ...c,
+            messages: (c.messages || []).map((m) =>
+              m.id === messageId ? { ...m, ...messageUpdates } : m
+            ),
+            updatedAt: Date.now(),
+          }
           : c
       ),
     }));
@@ -332,10 +337,10 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
       conversations: state.conversations.map((c) =>
         c.id === conversationId
           ? {
-              ...c,
-              messages: (c.messages || []).filter((m) => m.id !== messageId),
-              updatedAt: Date.now(),
-            }
+            ...c,
+            messages: (c.messages || []).filter((m) => m.id !== messageId),
+            updatedAt: Date.now(),
+          }
           : c
       ),
     }));

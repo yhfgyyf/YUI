@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo } from 'react';
-import { Download } from 'lucide-react';
+import { Download, Settings as SettingsIcon } from 'lucide-react';
 import { Message } from './Message';
 import { ChatInput } from './ChatInput';
 import type { Conversation } from '@/types';
@@ -15,6 +15,7 @@ interface ChatPanelProps {
   onEditMessage: (messageId: string, newContent: string) => void;
   onDeleteMessage: (messageId: string) => void;
   onExportConversation: () => void;
+  onOpenSettings: () => void;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -26,6 +27,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   onEditMessage,
   onDeleteMessage,
   onExportConversation,
+  onOpenSettings,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -84,11 +86,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         <div className="flex gap-2">
           <button
             onClick={onExportConversation}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             title="导出对话"
           >
-            <Download className="w-4 h-4" />
-            <span className="text-base">导出</span>
+            <Download className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onOpenSettings}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title="设置"
+          >
+            <SettingsIcon className="w-5 h-5" />
           </button>
         </div>
       </div>
