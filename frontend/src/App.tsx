@@ -145,28 +145,29 @@ function App() {
     document.documentElement.classList.toggle('dark', uiPreferences.theme === 'dark');
   }, [uiPreferences.theme]);
 
-  const handleSendMessage = async (content: string, skipAddingUserMessage = false) => {
+  const handleSendMessage = async (content: string, attachments: import('@/types').Attachment[] = [], skipAddingUserMessage = false) => {
     if (!currentConversationId) {
       const newId = createConversation();
       selectConversation(newId);
       // Wait a bit for the state to update
-      setTimeout(() => handleSendMessage(content, skipAddingUserMessage), 100);
+      setTimeout(() => handleSendMessage(content, attachments, skipAddingUserMessage), 100);
       return;
     }
 
-    // Add user message (skip if regenerating or editing)
+    // Add user message with attachments (skip if regenerating or editing)
     if (!skipAddingUserMessage) {
       addMessage(currentConversationId, {
         role: 'user',
         content,
+        attachments,
       });
     }
 
-    // Create assistant message placeholder
+    // Create assistant message placeholder (skip DB sync, will sync at the end)
     const assistantMessage = addMessage(currentConversationId, {
       role: 'assistant',
       content: '',
-    });
+    }, true);  // skipDbSync = true
     setCurrentMessageId(assistantMessage.id);
 
     // Start streaming
@@ -177,21 +178,74 @@ function App() {
 
       const settings = getEffectiveSettings(currentConversationId);
 
+      // 收集所有历史对话中上传的文件（累积模式）
+      // 1. 从历史消息中收集所有附件
+      const historicalAttachments: import('@/types').Attachment[] = [];
+      const attachmentIds = new Set<string>();
+
+      for (const msg of conversation.messages) {
+        if (msg.role === 'user' && msg.attachments && msg.attachments.length > 0) {
+          for (const att of msg.attachments) {
+            // 去重：基于文件ID
+            if (!attachmentIds.has(att.id)) {
+              attachmentIds.add(att.id);
+              historicalAttachments.push(att);
+            }
+          }
+        }
+      }
+
+      // 2. 将当前上传的附件也加入（如果有）
+      const currentAttachments = attachments || [];
+      for (const att of currentAttachments) {
+        if (!attachmentIds.has(att.id)) {
+          attachmentIds.add(att.id);
+          historicalAttachments.push(att);
+        }
+      }
+
+      // 3. 使用累积的所有附件
+      const effectiveAttachments = historicalAttachments;
+
+      // 日志：显示收集到的文件信息
+      if (effectiveAttachments.length > 0) {
+        console.log('[File Context] Collected attachments:', effectiveAttachments.length);
+        effectiveAttachments.forEach((att, idx) => {
+          console.log(`  [${idx + 1}] ${att.name} (${att.id})`);
+        });
+      }
+
+      // 构建文件上下文（如果有附件）
+      let fileContext = '';
+      if (effectiveAttachments && effectiveAttachments.length > 0) {
+        const validFiles = effectiveAttachments.filter(att => att.text_content && !att.parse_error);
+        if (validFiles.length > 0) {
+          const fileContents = validFiles.map(att => {
+            let context = `<file name="${att.name}" type="${att.type}">`;
+            if (att.truncated) {
+              context += `\n[Note: Content truncated to ${att.text_content?.length} characters]`;
+            }
+            context += `\n${att.text_content}\n</file>`;
+            return context;
+          });
+
+          fileContext = `You have been provided with the following file(s) for context:\n\n${fileContents.join('\n\n')}\n\nPlease answer the user's question based on these files. Include relevant quotes or references from the files in your response.`;
+        }
+      }
+
+      // 合并文件上下文到系统提示词
+      const effectiveSettings = {
+        ...settings,
+        system: fileContext
+          ? (settings.system ? `${fileContext}\n\n${settings.system}` : fileContext)
+          : settings.system
+      };
+
       // 过滤掉刚创建的空 assistant 占位消息（它的 id 是 assistantMessage.id）
+      // 注意：用户消息已经通过 addMessage 添加到 conversation.messages 中了，无需再次添加
       const messages = conversation.messages.filter(
         msg => msg.id !== assistantMessage.id
       );
-
-      // Add the user message we just created (only if not skipping)
-      if (!skipAddingUserMessage) {
-        const fullContent = content;
-        messages.push({
-          id: 'temp',
-          role: 'user',
-          content: fullContent,
-          createdAt: Date.now(),
-        });
-      }
 
       // 查找当前模型对应的模型源，并判断是否为推理模型
       let apiConfig: { baseUrl?: string; apiKey?: string } | undefined;
@@ -214,9 +268,10 @@ function App() {
       let hasApiReasoningContent = false; // 是否从 API 获得了 reasoning_content
       let hasFoundCloseTag = false; // 是否已经找到 </think> 标签
 
-      for await (const event of chatAPI.streamChatCompletion(messages, settings, apiConfig)) {
+      // 使用包含文件上下文的 effectiveSettings
+      for await (const event of chatAPI.streamChatCompletion(messages, effectiveSettings, apiConfig)) {
         if (event.error) {
-          updateMessage(currentConversationId, assistantMessage.id, `Error: ${event.error}`);
+          updateMessage(currentConversationId, assistantMessage.id, `Error: ${event.error}`, true);
           break;
         }
 
@@ -231,7 +286,7 @@ function App() {
           updateMessage(currentConversationId, assistantMessage.id, {
             content: currentContent + (event.delta || ''),
             reasoning_content: currentReasoning + event.reasoning_delta,
-          });
+          }, true);  // skipDbSync = true
           continue;
         }
 
@@ -261,13 +316,13 @@ function App() {
                 updateMessage(currentConversationId, assistantMessage.id, {
                   content: content,
                   reasoning_content: reasoning,
-                });
+                }, true);  // skipDbSync = true
               } else {
                 // 还没找到 </think> 标签，暂时全部放入 reasoning_content
                 updateMessage(currentConversationId, assistantMessage.id, {
                   content: '',
                   reasoning_content: fullContent,
-                });
+                }, true);  // skipDbSync = true
               }
             } else {
               // 已经找到标签了，后续内容直接追加到 content
@@ -281,12 +336,12 @@ function App() {
                 updateMessage(currentConversationId, assistantMessage.id, {
                   content: content,
                   reasoning_content: reasoning,
-                });
+                }, true);  // skipDbSync = true
               }
             }
           } else {
             // 不是推理模型，或已经有 API reasoning_content，正常显示
-            updateMessage(currentConversationId, assistantMessage.id, fullContent);
+            updateMessage(currentConversationId, assistantMessage.id, fullContent, true);  // skipDbSync = true
           }
         }
 
@@ -327,7 +382,7 @@ function App() {
               updateMessage(currentConversationId, assistantMessage.id, {
                 content: fullContent,
                 reasoning_content: undefined,
-              });
+              }, true);  // skipDbSync = true
             } else {
               console.log('✓ Stream finished with </think> tag already processed');
             }
@@ -340,9 +395,30 @@ function App() {
       updateMessage(
         currentConversationId,
         assistantMessage.id,
-        `Error: ${error.message || 'Unknown error occurred'}`
+        `Error: ${error.message || 'Unknown error occurred'}`,
+        true  // skipDbSync = true
       );
     } finally {
+      // 流式响应完成后（正常结束/人为停止/意外中断），一次性同步完整内容到数据库
+      const finalConv = getCurrentConversation();
+      const finalMessage = finalConv?.messages.find(m => m.id === assistantMessage.id);
+
+      if (finalMessage) {
+        console.log('[DB Sync] Syncing final message to database...');
+        console.log('[DB Sync] Message ID:', assistantMessage.id);
+        console.log('[DB Sync] Content length:', finalMessage.content?.length || 0);
+        console.log('[DB Sync] Reasoning length:', finalMessage.reasoning_content?.length || 0);
+
+        // 直接调用dbApi同步到数据库
+        import('@/services/dbApi').then(({ addMessage: dbAddMessage }) => {
+          dbAddMessage(currentConversationId, finalMessage).then(() => {
+            console.log('[DB Sync] Successfully synced message to database');
+          }).catch(err => {
+            console.error('[DB Sync] Failed to sync final message to database:', err);
+          });
+        });
+      }
+
       setIsGenerating(false);
       setCurrentMessageId(null);
     }
@@ -366,6 +442,12 @@ function App() {
     // Remove the assistant message
     deleteMessage(currentConversationId, messageId);
 
+    // Delete all messages after this one (to handle multi-turn conversations correctly)
+    const messagesToDelete = conversation.messages.slice(messageIndex + 1);
+    messagesToDelete.forEach((msg) => {
+      deleteMessage(currentConversationId, msg.id);
+    });
+
     // Find the last user message before this
     const userMessages = conversation.messages
       .slice(0, messageIndex)
@@ -373,8 +455,8 @@ function App() {
     const lastUserMessage = userMessages[userMessages.length - 1];
 
     if (lastUserMessage) {
-      // Resend the last user message (skip adding it again since it already exists)
-      handleSendMessage(lastUserMessage.content, true);
+      // Resend the last user message with its attachments (skip adding it again since it already exists)
+      handleSendMessage(lastUserMessage.content, lastUserMessage.attachments || [], true);
     }
   };
 
@@ -388,6 +470,9 @@ function App() {
     const messageIndex = conversation.messages.findIndex((m) => m.id === messageId);
     if (messageIndex === -1) return;
 
+    // Get the original message to preserve attachments
+    const originalMessage = conversation.messages[messageIndex];
+
     // Update the message content
     updateMessage(currentConversationId, messageId, newContent);
 
@@ -397,9 +482,9 @@ function App() {
       deleteMessage(currentConversationId, msg.id);
     });
 
-    // Resend the edited message (skip adding it again since we just updated it)
+    // Resend the edited message with original attachments (skip adding it again since we just updated it)
     setTimeout(() => {
-      handleSendMessage(newContent, true);
+      handleSendMessage(newContent, originalMessage.attachments || [], true);
     }, 100);
   };
 
@@ -469,8 +554,6 @@ function App() {
         conversations={conversations}
         folders={folders}
         currentConversationId={currentConversationId}
-        collapsed={uiPreferences.sidebarCollapsed}
-        onToggleCollapsed={() => updateUIPreferences({ sidebarCollapsed: !uiPreferences.sidebarCollapsed })}
         onNewConversation={createConversation}
         onSelectConversation={selectConversation}
         onRenameConversation={renameConversation}

@@ -2,7 +2,7 @@
 # Create offline installation package for YUI ChatBox
 set -e
 
-VERSION="1.0.0"
+VERSION="1.0.2"
 OUTPUT_DIR="yui-chatbox-offline-${VERSION}"
 WHEELS_DIR="${OUTPUT_DIR}/wheels"
 STATIC_DIR="${OUTPUT_DIR}/static"
@@ -59,6 +59,12 @@ pip download \
     "click>=8.0.0" \
     "sqlalchemy>=2.0.0" \
     nanoid \
+    PyPDF2==3.0.1 \
+    python-docx==1.1.0 \
+    Pillow==10.2.0 \
+    python-magic==0.4.27 \
+    aiofiles==23.2.1 \
+    python-multipart==0.0.9 \
     -d "${WHEELS_DIR}"
 
 # Step 5: Create installation script

@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Copy, Check, User, Bot, Settings as SettingsIcon, Edit2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, Check, User, Bot, Settings as SettingsIcon, Edit2, RefreshCw, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
 import type { Message as MessageType } from '@/types';
 import { copyToClipboard, formatTimestamp } from '@/utils/format';
 import { clsx } from 'clsx';
@@ -208,6 +208,31 @@ export const Message: React.FC<MessageProps> = ({
           </div>
         ) : (
           <>
+            {/* 附件显示 */}
+            {message.attachments && message.attachments.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {message.attachments.map((att) => (
+                  <div
+                    key={att.id}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                  >
+                    <Paperclip className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    <span className="text-gray-700 dark:text-gray-300">{att.name}</span>
+                    {att.parse_error && (
+                      <span className="text-xs text-red-600 dark:text-red-400" title={att.parse_error}>
+                        ⚠️ 解析失败
+                      </span>
+                    )}
+                    {att.truncated && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400" title="内容已截断">
+                        ✂️ 已截断
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* 推理过程（折叠显示） */}
             {reasoning && (
               <div className="mb-4 border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden bg-amber-50 dark:bg-amber-900/20">

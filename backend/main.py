@@ -5,15 +5,22 @@ Proxies requests to OpenAI-compatible APIs with streaming support
 import os
 import json
 import asyncio
+import shutil
+import mimetypes
 from typing import AsyncGenerator, Optional, List, Dict, Any
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 import httpx
+import aiofiles
+from nanoid import nanoid
+
+from file_parsers import parse_file, FileParseResult
 
 # Load environment variables
 load_dotenv()
@@ -22,9 +29,14 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
+MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10MB
 
 if not OPENAI_API_KEY:
     print("WARNING: OPENAI_API_KEY not set in environment variables")
+
+# Ensure upload directory exists
+Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
 
 # Pydantic Models
@@ -42,6 +54,19 @@ class ChatRequest(BaseModel):
     stream: Optional[bool] = True
     system: Optional[str] = None
     seed: Optional[int] = None
+    file_context: Optional[str] = None  # NEW: Parsed file contents
+
+
+class FileUploadResponse(BaseModel):
+    id: str
+    name: str
+    type: str
+    size: int
+    path: str
+    text_content: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    parse_error: Optional[str] = None
+    truncated: bool = False
 
 
 class HealthResponse(BaseModel):
@@ -94,9 +119,17 @@ async def chat_completion(request: ChatRequest):
         # Prepare messages
         messages = [msg.model_dump() for msg in request.messages]
 
-        # Add system message if provided
-        if request.system:
-            messages.insert(0, {"role": "system", "content": request.system})
+        # Build system message with file context if provided
+        system_content = request.system or ""
+        if request.file_context:
+            if system_content:
+                system_content = f"{request.file_context}\n\n{system_content}"
+            else:
+                system_content = request.file_context
+
+        # Add system message if exists
+        if system_content:
+            messages.insert(0, {"role": "system", "content": system_content})
 
         # Prepare request payload
         payload = {
@@ -144,9 +177,17 @@ async def stream_chat_response(request: ChatRequest) -> AsyncGenerator[str, None
         # Prepare messages
         messages = [msg.model_dump() for msg in request.messages]
 
-        # Add system message if provided
-        if request.system:
-            messages.insert(0, {"role": "system", "content": request.system})
+        # Build system message with file context if provided
+        system_content = request.system or ""
+        if request.file_context:
+            if system_content:
+                system_content = f"{request.file_context}\n\n{system_content}"
+            else:
+                system_content = request.file_context
+
+        # Add system message if exists
+        if system_content:
+            messages.insert(0, {"role": "system", "content": system_content})
 
         # Prepare request payload
         payload = {
@@ -255,6 +296,114 @@ async def list_models():
                 {"id": "gpt-5.2", "object": "model"},
             ]
         }
+
+
+@app.post("/v1/files/upload", response_model=FileUploadResponse)
+async def upload_file(
+    conversation_id: str = Form(...),
+    file: UploadFile = File(...)
+):
+    """
+    Upload a file and extract text content
+
+    Args:
+        conversation_id: ID of the conversation this file belongs to
+        file: The uploaded file
+
+    Returns:
+        FileUploadResponse with parsed text content
+    """
+    try:
+        # Validate file size
+        content = await file.read()
+        file_size = len(content)
+
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size: {MAX_FILE_SIZE / 1024 / 1024}MB"
+            )
+
+        # Generate unique file ID
+        file_id = nanoid()
+        file_ext = Path(file.filename).suffix
+        safe_filename = f"{file_id}_{file.filename}"
+
+        # Create conversation-specific directory
+        conv_dir = Path(UPLOAD_DIR) / conversation_id
+        conv_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save file
+        file_path = conv_dir / safe_filename
+        async with aiofiles.open(file_path, 'wb') as f:
+            await f.write(content)
+
+        # Parse file to extract text
+        parse_result = parse_file(str(file_path))
+
+        # Detect MIME type
+        mime_type = mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
+
+        return FileUploadResponse(
+            id=file_id,
+            name=file.filename,
+            type=mime_type,
+            size=file_size,
+            path=str(file_path),
+            text_content=parse_result.text if parse_result.success else None,
+            metadata=parse_result.metadata if parse_result.success else None,
+            parse_error=parse_result.error if not parse_result.success else None,
+            truncated=parse_result.truncated
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"File upload failed: {str(e)}"
+        )
+
+
+@app.delete("/v1/files/{conversation_id}/{file_id}")
+async def delete_file(conversation_id: str, file_id: str):
+    """Delete an uploaded file"""
+    try:
+        conv_dir = Path(UPLOAD_DIR) / conversation_id
+
+        # Find file with matching ID
+        for file_path in conv_dir.glob(f"{file_id}_*"):
+            file_path.unlink()
+            return {"success": True, "message": "File deleted"}
+
+        raise HTTPException(status_code=404, detail="File not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"File deletion failed: {str(e)}"
+        )
+
+
+@app.delete("/v1/files/conversation/{conversation_id}")
+async def delete_conversation_files(conversation_id: str):
+    """Delete all files for a conversation"""
+    try:
+        conv_dir = Path(UPLOAD_DIR) / conversation_id
+
+        if conv_dir.exists():
+            shutil.rmtree(conv_dir)
+            return {"success": True, "message": "All files deleted"}
+
+        return {"success": True, "message": "No files found"}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Cleanup failed: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

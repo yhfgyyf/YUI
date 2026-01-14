@@ -16,6 +16,10 @@ export interface Attachment {
   type: string;
   size: number;
   url?: string;
+  text_content?: string;      // 提取的文本内容
+  metadata?: Record<string, any>;  // 文件元数据
+  parse_error?: string;       // 解析错误信息
+  truncated?: boolean;        // 是否被截断
 }
 
 export interface ToolCall {

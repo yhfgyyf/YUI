@@ -28,6 +28,15 @@
   - 内容包含 `<think>...</think>` 标签
 - **流式友好**：实时分离推理内容和最终答案
 
+### 📎 文件上传对话（v1.0.2 新增）
+- **多格式支持**：支持 TXT、PDF、Word (.docx)、图片 (JPG/PNG)
+- **智能解析**：自动提取文件文本内容（PDF分页、Word段落、图片EXIF）
+- **多文件处理**：同时上传多个文件，AI综合所有文件内容回答
+- **文件大小限制**：单文件最大 10MB
+- **内容截断保护**：超过 50,000 字符自动截断并提示
+- **错误处理**：解析失败文件显示警告图标，不影响其他文件
+- **自动清理**：删除对话时自动清理关联文件
+
 ### 💬 对话管理
 - **多会话**：支持无限数量的对话会话
 - **实时流式**：Server-Sent Events (SSE) 实现打字机效果
@@ -114,25 +123,7 @@ python -m yuichatbox serve --dev
 - Python 3.8+
 - 一个 OpenAI 兼容的 API 端点
 
-#### 后端设置
 
-```bash
-cd backend
-
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件，配置 API 密钥和端点
-
-# 启动后端服务
-python main.py
-```
 
 #### 前端设置
 

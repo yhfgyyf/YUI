@@ -35,8 +35,8 @@ interface ChatStore extends AppState {
   forkConversation: (conversationId: string, fromMessageId: string) => void;
 
   // Message actions
-  addMessage: (conversationId: string, message: Omit<Message, 'id' | 'createdAt'>) => Message;
-  updateMessage: (conversationId: string, messageId: string, updates: string | Partial<Pick<Message, 'content' | 'reasoning_content'>>) => void;
+  addMessage: (conversationId: string, message: Omit<Message, 'id' | 'createdAt'>, skipDbSync?: boolean) => Message;
+  updateMessage: (conversationId: string, messageId: string, updates: string | Partial<Pick<Message, 'content' | 'reasoning_content'>>, skipDbSync?: boolean) => void;
   deleteMessage: (conversationId: string, messageId: string) => void;
   regenerateMessage: (conversationId: string, messageId: string) => void;
 
@@ -171,6 +171,12 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
 
     // Sync to database
     dbApi.deleteConversation(id).catch(console.error);
+
+    // Delete associated files
+    import('@/services/api').then(({ deleteConversationFiles }) => {
+      deleteConversationFiles(id).catch(console.error);
+    });
+
     if (newCurrentId !== state.currentConversationId) {
       dbApi.updateSettings({ currentConversationId: newCurrentId }).catch(console.error);
     }
@@ -262,7 +268,7 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     dbApi.updateSettings({ currentConversationId: newId }).catch(console.error);
   },
 
-  addMessage: (conversationId, message) => {
+  addMessage: (conversationId, message, skipDbSync = false) => {
     const newMessage: Message = {
       ...message,
       id: nanoid(),
@@ -290,22 +296,24 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
       ),
     }));
 
-    // Sync to database
-    dbApi.addMessage(conversationId, newMessage).catch(console.error);
+    // Sync to database (unless skipDbSync is true)
+    if (!skipDbSync) {
+      dbApi.addMessage(conversationId, newMessage).catch(console.error);
 
-    // Update conversation title if changed
-    const newConv = get().conversations.find(c => c.id === conversationId);
-    if (newConv && newConv.title !== oldTitle) {
-      dbApi.updateConversation(conversationId, {
-        title: newConv.title,
-        updatedAt: Date.now()
-      }).catch(console.error);
+      // Update conversation title if changed
+      const newConv = get().conversations.find(c => c.id === conversationId);
+      if (newConv && newConv.title !== oldTitle) {
+        dbApi.updateConversation(conversationId, {
+          title: newConv.title,
+          updatedAt: Date.now()
+        }).catch(console.error);
+      }
     }
 
     return newMessage;
   },
 
-  updateMessage: (conversationId, messageId, updates) => {
+  updateMessage: (conversationId, messageId, updates, skipDbSync = false) => {
     // 兼容字符串参数（向后兼容）
     const messageUpdates = typeof updates === 'string' ? { content: updates } : updates;
 
@@ -323,13 +331,15 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
       ),
     }));
 
-    // Sync to database
-    dbApi.updateMessage(
-      conversationId,
-      messageId,
-      messageUpdates.content,
-      messageUpdates.reasoning_content
-    ).catch(console.error);
+    // Sync to database (unless skipDbSync is true)
+    if (!skipDbSync) {
+      dbApi.updateMessage(
+        conversationId,
+        messageId,
+        messageUpdates.content,
+        messageUpdates.reasoning_content
+      ).catch(console.error);
+    }
   },
 
   deleteMessage: (conversationId, messageId) => {

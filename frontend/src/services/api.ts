@@ -294,3 +294,60 @@ export class ChatAPI {
 }
 
 export const chatAPI = new ChatAPI();
+
+/**
+ * Upload a file for a conversation
+ */
+export async function uploadFile(
+  conversationId: string,
+  file: File
+): Promise<import('@/types').Attachment> {
+  const formData = new FormData();
+  formData.append('conversation_id', conversationId);
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/v1/files/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
+    throw new Error(error.detail || 'Upload failed');
+  }
+
+  return await response.json();
+}
+
+/**
+ * Delete a specific file
+ */
+export async function deleteFile(
+  conversationId: string,
+  fileId: string
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/v1/files/${conversationId}/${fileId}`,
+    { method: 'DELETE' }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to delete file');
+  }
+}
+
+/**
+ * Delete all files for a conversation
+ */
+export async function deleteConversationFiles(
+  conversationId: string
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/v1/files/conversation/${conversationId}`,
+    { method: 'DELETE' }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to delete conversation files');
+  }
+}

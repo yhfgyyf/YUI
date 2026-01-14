@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yuichatbox"
-version = "1.0.0"
+version = "1.0.2"
 description = "AI Chat Application with Multi-Model Support and Reasoning Visualization"
 authors = [{name = "YUI ChatBox Team"}]
 readme = "README.md"
@@ -37,6 +37,12 @@ dependencies = [
     "click>=8.0.0",
     "sqlalchemy>=2.0.0",
     "nanoid>=2.0.0",
+    "PyPDF2==3.0.1",
+    "python-docx==1.1.0",
+    "Pillow==10.2.0",
+    "python-magic==0.4.27",
+    "aiofiles==23.2.1",
+    "python-multipart==0.0.9",
 ]
 
 [project.optional-dependencies]

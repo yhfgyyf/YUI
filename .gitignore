@@ -24,7 +24,6 @@ dist/
 build/
 *.egg-info/
 yuichatbox/static/
-yui-chatbox-offline-*/
 
 # IDE
 .vscode/
@@ -74,3 +73,7 @@ Thumbs.db
 # Runtime files
 *.pid
 nohup.out
+
+# Offline packages
+yui-chatbox-offline-*.tar.gz
+yui-chatbox-offline-*/
